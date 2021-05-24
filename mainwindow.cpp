@@ -3,8 +3,10 @@
 #include <QMenuBar>
 #include <QItemSelectionModel>
 #include <unordered_set>
+#include <iostream>
+#include <fstream>
 
-std::vector<Car> read_data()
+std::vector<Car> read_data(QString /*path*/)
 {
   std::vector<Car> result;
   result.push_back (Car ({QDate(2012, 5, 1), "Volvo", "102AE", 200, "new"}));
@@ -14,8 +16,7 @@ std::vector<Car> read_data()
 
 // QtableView
 // Model
-CarModel::CarModel (QObject *parent, const std::vector<Car> &data, const QTableView *m_view) :
-    QAbstractTableModel (parent), m_data (data), m_view (m_view)
+CarModel::CarModel (QObject *parent) : QAbstractTableModel (parent)
 {}
 
 
@@ -107,31 +108,95 @@ void CarModel::delete_rows_func ()
   emit layoutChanged ();
 }
 
-tableWidget::tableWidget (QWidget *parent) : QWidget(parent)
+tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
+    model (model)
 {
     m_view = new QTableView (parent);
-    model = new CarModel(parent, read_data (), m_view);
+    if (model)
+      model->set_view (m_view);
 
     m_view->setModel (model);
-    std::set<QString> options = {"new", "old"};
-    comboboxdelegate *cb_delegate = new comboboxdelegate (this, options);
+    comboboxdelegate *cb_delegate = new comboboxdelegate (this, {"new", "old"});
     m_view->setItemDelegateForColumn ((int) car_fields::state, cb_delegate);
+    filter_model = new QSortFilterProxyModel (this);
+    filter_model->setSourceModel (model);
 
+    m_filter_view = new QTableView(parent);
+    m_filter_view->setModel(filter_model);
 
     QGridLayout *layout = new QGridLayout (this);
     setLayout(layout);
-    layout->addWidget (m_view);
-    layout->addWidget(&add_row);
+    layout->addWidget (m_view, 0, 0, 1, 3);
+    layout->addWidget (m_filter_view, 0, 3, 1, 2);
+    layout->addWidget (&filter, 1, 3);
+    layout->addWidget (&apply_filter, 1, 4);
+
+    layout->addWidget(&add_row, 1, 0);
+    layout->addWidget(&delete_rows, 1, 1);
+
     connect (&add_row,  &QPushButton::clicked, model, &CarModel::add_row_func);
-    layout ->addWidget(&delete_rows);
     connect (&delete_rows,  &QPushButton::clicked, model, &CarModel::delete_rows_func);
+    connect (&apply_filter,  &QPushButton::clicked, this, &tableWidget::filter_data);
+}
+
+void tableWidget::filter_data ()
+{
+  auto filter_text = filter.text ();
+  filter_model->setFilterKeyColumn ((int)car_fields::model);
+  filter_model->setFilterFixedString (filter_text);
 }
 
 
-
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
+void MainWindow::load_function ()
 {
-    centralwidget = new tableWidget (this);
+    dir = QFileDialog::getOpenFileName (this, "Open File", QDir::currentPath ());
+    auto data = read_data (dir);
+    model.set_data (data);
+}
+
+// Kirill
+void MainWindow::re_function ()
+{
+    auto data = read_data (dir);
+    model.set_data (data);
+}
+
+
+void MainWindow::save_file(QString path)
+{
+  std::ofstream out(path.toStdString ().c_str ());
+
+  for (auto &car : model.m_data)
+  {
+    for (auto &token : car.data)
+    {
+
+      out << token.toString ().toStdString ();
+      if (token != car.data[car.data.size() - 1])
+        out << ',';
+      else
+        out << '\n';
+    }
+  }
+}
+
+// Nikolay
+void MainWindow::save_as()
+{
+  auto path = QFileDialog::getSaveFileName(this, "Save as", QDir::currentPath());
+  save_file(path);
+}
+
+// Nikolay
+void MainWindow::save()
+{
+  if (dir.size ())
+    save_file(dir);
+}
+
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), model (parent)
+{
+    centralwidget = new tableWidget (this, &model);
     setCentralWidget (centralwidget);
     resize (1200, 600);
 
@@ -139,12 +204,24 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     auto newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Open");
     connect(newAction, &QAction::triggered, this, &MainWindow::load_function);
-    newAction->setShortcut(QKeySequence(Qt::CTRL, Qt::Key_O));
+    newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
     file_menu->addAction (newAction);
 
+    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Refresh");
+    connect(newAction, &QAction::triggered, this, &MainWindow::re_function);
+    newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_R));
+    file_menu->addAction (newAction);
+
+    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Save");
+    connect(newAction, &QAction::triggered, this, &MainWindow::save);
+    newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
+    file_menu->addAction (newAction);
+
+    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Save as");
+    connect(newAction, &QAction::triggered, this, &MainWindow::save_as);
+    file_menu->addAction (newAction);
 }
 
 MainWindow::~MainWindow()
 {
 }
-
