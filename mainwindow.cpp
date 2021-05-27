@@ -5,12 +5,26 @@
 #include <unordered_set>
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <QSplitter>
+#include "qcustomplot.h"
 
-std::vector<Car> read_data(QString /*path*/)
+std::vector<Car> read_data(QString path)
 {
+  std::ifstream input (path.toStdString().c_str ());
+  std::string line;
   std::vector<Car> result;
-  result.push_back (Car ({QDate(2012, 5, 1), "Volvo", "102AE", 200, "new"}));
-  result.push_back (Car ({QDate(2013, 5, 1), "Nissan", "230OA", 200, "old"}));
+  while (std::getline(input, line))
+  {
+    std::stringstream ss (line);
+    std::string token;
+    std::vector<QVariant> line_data;
+    while(std::getline(ss, token, ','))
+    {
+      line_data.push_back(QString (token.c_str ()));
+    }
+    result.push_back(Car(line_data));
+  }
   return result;
 }
 
@@ -57,21 +71,7 @@ QVariant CarModel::headerData(int section, Qt::Orientation orientation, int role
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal)
     {
         car_fields field = (car_fields)section;
-        switch (field)
-        {
-        case car_fields::date              :
-            return "Date";
-        case car_fields::model             :
-            return  "Car Model";
-        case car_fields::registration_number:
-            return "Registration Number";
-        case car_fields::horsepower        :
-            return "Horse Power";
-        case car_fields::state             :
-            return "State";
-        case car_fields::COUNT:
-            return {};
-        }
+        return enum_to_string (field);
     }
     return {};
 }
@@ -83,29 +83,36 @@ Qt::ItemFlags CarModel::flags (const QModelIndex &/*index*/) const
 
 void CarModel::add_row_func ()
 {
-    auto car = Car ({QDate(1900, 0, 0), "", "", 0, "old"});
+    beginResetModel ();
+    std::vector<QVariant> input_data ((size_t)car_fields::COUNT);
+    auto car = Car (input_data);
     m_data.push_back (car);
+    endResetModel ();
+
     emit layoutChanged ();
 }
 
 // Egor(26/05)
 void CarModel::delete_rows_func ()
 {
-  std::vector<Car> new_data;
-  std::unordered_set<size_t> rows_to_delete;
+    beginResetModel ();
+    std::vector<Car> new_data;
+    std::unordered_set<size_t> rows_to_delete;
 
-  for (const auto &row_index : m_view->selectionModel()->selectedRows())
-    rows_to_delete.insert (row_index.row());
+    for (const auto &row_index : m_view->selectionModel()->selectedRows())
+      rows_to_delete.insert (row_index.row());
 
-  for (size_t index = 0; index < m_data.size(); index++)
-  {
-    if (rows_to_delete.find (index) == rows_to_delete.end ())
+    for (size_t index = 0; index < m_data.size(); index++)
     {
-        new_data.push_back(m_data[index]);
+      if (rows_to_delete.find (index) == rows_to_delete.end ())
+      {
+          new_data.push_back(m_data[index]);
+      }
     }
-  }
-  m_data = new_data;
-  emit layoutChanged ();
+    m_data = new_data;
+    endResetModel ();
+
+    emit layoutChanged ();
 }
 
 tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
@@ -115,19 +122,19 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
     if (model)
       model->set_view (m_view);
 
-    m_view->setModel (model);
-    comboboxdelegate *cb_delegate = new comboboxdelegate (this, {"new", "old"});
-    m_view->setItemDelegateForColumn ((int) car_fields::state, cb_delegate);
+//    comboboxdelegate *cb_delegate = new comboboxdelegate (this, {"new", "old"});
+//    m_view->setItemDelegateForColumn ((int) car_fields::state, cb_delegate);
+
     filter_model = new QSortFilterProxyModel (this);
     filter_model->setSourceModel (model);
 
-    m_filter_view = new QTableView(parent);
-    m_filter_view->setModel(filter_model);
+    m_view->setModel (filter_model);
 
     QGridLayout *layout = new QGridLayout (this);
     setLayout(layout);
-    layout->addWidget (m_view, 0, 0, 1, 3);
-    layout->addWidget (m_filter_view, 0, 3, 1, 2);
+    QSplitter *splitter = new QSplitter (this);
+
+    layout->addWidget (splitter, 0, 0, 1, 5);
     layout->addWidget (&filter, 1, 3);
     layout->addWidget (&apply_filter, 1, 4);
 
@@ -137,6 +144,19 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
     connect (&add_row,  &QPushButton::clicked, model, &CarModel::add_row_func);
     connect (&delete_rows,  &QPushButton::clicked, model, &CarModel::delete_rows_func);
     connect (&apply_filter,  &QPushButton::clicked, this, &tableWidget::filter_data);
+
+    splitter->addWidget (m_view);
+
+
+    QCustomPlot *plot = new QCustomPlot (this);
+    plot->addGraph ();
+    QVector<double> ticks;
+    QVector<QString> labels;
+    ticks << 1 << 2 << 3 << 4 << 5 << 6 << 7;
+    labels << "USA" << "Japan" << "Germany" << "France" << "UK" << "Italy" << "Canada";
+    QVector<double> data;
+    data  << 0.86*10.5 << 0.83*5.5 << 0.84*5.5 << 0.52*5.8 << 0.89*5.2 << 0.90*4.2 << 0.67*11.2;
+    splitter->addWidget(plot);
 }
 
 void tableWidget::filter_data ()
@@ -207,17 +227,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), model (parent)
     newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
     file_menu->addAction (newAction);
 
-    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Refresh");
+    newAction = new QAction ("Refresh");
     connect(newAction, &QAction::triggered, this, &MainWindow::re_function);
     newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_R));
     file_menu->addAction (newAction);
 
-    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Save");
+    newAction = new QAction ("Save");
     connect(newAction, &QAction::triggered, this, &MainWindow::save);
     newAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
     file_menu->addAction (newAction);
 
-    newAction = new QAction (QIcon (style()->standardIcon(QStyle::SP_DirOpenIcon)), "Save as");
+    newAction = new QAction ("Save as");
     connect(newAction, &QAction::triggered, this, &MainWindow::save_as);
     file_menu->addAction (newAction);
 }

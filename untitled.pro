@@ -1,6 +1,6 @@
 QT       += core gui
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport
 
 CONFIG += c++11
 
@@ -12,12 +12,14 @@ SOURCES += \
     car.cpp \
     comboboxdelegate.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    qcustomplot.cpp
 
 HEADERS += \
     car.h \
     comboboxdelegate.h \
-    mainwindow.h
+    mainwindow.h \
+    qcustomplot.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

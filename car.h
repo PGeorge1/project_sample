@@ -6,13 +6,23 @@
 
 enum class car_fields
 {
-    date,
+    number,
+    price,
+    brand,
     model,
-    registration_number,
-    horsepower,
+    year,
+    title_status,
+    mileage,
+    color,
+    vin,
+    lot,
     state,
+    country,
+    condition,
     COUNT
 };
+
+const char *enum_to_string (car_fields field);
 
 class Car
 {
