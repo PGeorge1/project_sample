@@ -40,6 +40,16 @@ public slots:
 };
 
 
+class logoWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    logoWidget (QWidget *parent);
+protected:
+    void paintEvent (QPaintEvent *event) override;
+};
+
+
 class tableWidget : public QWidget
 {
     Q_OBJECT
@@ -47,6 +57,7 @@ public:
     tableWidget (QWidget *parent = nullptr, CarModel *model = nullptr);
     QTableView *m_view;
     QTableView *m_filter_view;
+    logoWidget *logo_widget;
 
     CarModel *model;
     QSortFilterProxyModel *filter_model;

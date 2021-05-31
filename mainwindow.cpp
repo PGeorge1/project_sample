@@ -133,13 +133,15 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
     QGridLayout *layout = new QGridLayout (this);
     setLayout(layout);
     QSplitter *splitter = new QSplitter (this);
+    logo_widget = new logoWidget (this);
 
-    layout->addWidget (splitter, 0, 0, 1, 5);
-    layout->addWidget (&filter, 1, 3);
-    layout->addWidget (&apply_filter, 1, 4);
+    layout->addWidget (logo_widget, 0, 4);
+    layout->addWidget (splitter, 1, 0, 1, 5);
+    layout->addWidget (&filter, 2, 3);
+    layout->addWidget (&apply_filter, 2, 4);
 
-    layout->addWidget(&add_row, 1, 0);
-    layout->addWidget(&delete_rows, 1, 1);
+    layout->addWidget(&add_row, 2, 0);
+    layout->addWidget(&delete_rows, 2, 1);
 
     connect (&add_row,  &QPushButton::clicked, model, &CarModel::add_row_func);
     connect (&delete_rows,  &QPushButton::clicked, model, &CarModel::delete_rows_func);
@@ -148,14 +150,9 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
     splitter->addWidget (m_view);
 
 
+    // todo
     QCustomPlot *plot = new QCustomPlot (this);
     plot->addGraph ();
-    QVector<double> ticks;
-    QVector<QString> labels;
-    ticks << 1 << 2 << 3 << 4 << 5 << 6 << 7;
-    labels << "USA" << "Japan" << "Germany" << "France" << "UK" << "Italy" << "Canada";
-    QVector<double> data;
-    data  << 0.86*10.5 << 0.83*5.5 << 0.84*5.5 << 0.52*5.8 << 0.89*5.2 << 0.90*4.2 << 0.67*11.2;
     splitter->addWidget(plot);
 }
 
@@ -165,6 +162,41 @@ void tableWidget::filter_data ()
   filter_model->setFilterKeyColumn ((int)car_fields::model);
   filter_model->setFilterFixedString (filter_text);
 }
+
+
+
+logoWidget::logoWidget (QWidget *parent) : QWidget (parent)
+{
+   setMaximumSize (QSize (20, 20));
+}
+
+void logoWidget::paintEvent (QPaintEvent */*event*/)
+{
+    QPainter painter (this);
+
+    painter.setBackground(QBrush (Qt::white));
+    // QColor
+
+    painter.setPen (QPen (QBrush (Qt::blue), 7));
+    painter.setBrush (QBrush (Qt::red));
+
+    QPoint center_widget (width () / 2, height () / 2);
+    int radius = std::min (width (), height ()) / 4;
+    painter.drawEllipse (center_widget, radius, radius);
+
+    double triangle_height = height () / 2;
+
+    painter.setPen (Qt::green);
+    painter.setBrush (QBrush (Qt::white));
+    QList<QPoint> points = {center_widget - QPoint (0, 2 * triangle_height / 3),
+                            center_widget + QPoint (triangle_height / sqrt (3), triangle_height / 3),
+                            center_widget + QPoint (-triangle_height / sqrt (3), triangle_height / 3)};
+
+    QPolygon polygon (points);
+    painter.drawPolygon (polygon);
+}
+
+
 
 
 void MainWindow::load_function ()
