@@ -25,4 +25,5 @@ const char *enum_to_string (car_fields field)
     case car_fields::condition    : return "condition";
     case car_fields::COUNT : return "";
     }
+    return {};
 }

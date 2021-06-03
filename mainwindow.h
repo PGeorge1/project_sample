@@ -9,6 +9,9 @@
 #include <QFileDialog>
 #include <QSortFilterProxyModel>
 #include <QLineEdit>
+#include <QDoubleSpinBox>
+
+class FilterModel;
 
 class CarModel : public QAbstractTableModel
 {
@@ -60,14 +63,37 @@ public:
     logoWidget *logo_widget;
 
     CarModel *model;
-    QSortFilterProxyModel *filter_model;
-    QLineEdit filter;
+    FilterModel *filter_model;
+    QLineEdit *modelfilter;
+    QDoubleSpinBox *minPrice;
+    QDoubleSpinBox *maxPrice;
+
     QPushButton apply_filter {"Apply"};
-    QPushButton add_row {"Add Row"};
-    QPushButton delete_rows {"Delete Rows"};
 public slots:
     void filter_data ();
 };
+
+
+
+
+class FilterModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+public:
+    FilterModel (QObject *parent, const tableWidget *w);
+    void set_filter ();
+
+protected:
+    virtual bool filterAcceptsRow (int source_row, const QModelIndex &source_parent) const override;
+
+private:
+    double min_price = 0,
+           max_price = 1e30;
+    QString model;
+    const tableWidget* table_widget;
+};
+
+
 
 
 class MainWindow : public QMainWindow

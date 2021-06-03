@@ -125,7 +125,7 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
 //    comboboxdelegate *cb_delegate = new comboboxdelegate (this, {"new", "old"});
 //    m_view->setItemDelegateForColumn ((int) car_fields::state, cb_delegate);
 
-    filter_model = new QSortFilterProxyModel (this);
+    filter_model = new FilterModel (this, this);
     filter_model->setSourceModel (model);
 
     m_view->setModel (filter_model);
@@ -135,16 +135,46 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
     QSplitter *splitter = new QSplitter (this);
     logo_widget = new logoWidget (this);
 
-    layout->addWidget (logo_widget, 0, 4);
+    QHBoxLayout *logo_layout = new QHBoxLayout ();
+    QLabel *label = new QLabel ("Working for future");
+
+    logo_widget->setFixedSize(30, 30);
+    label->setFixedHeight (30);
+    logo_layout->addWidget (logo_widget);
+    logo_layout->addWidget (label);
+    logo_layout->addStretch();
+    layout->addLayout (logo_layout, 0, 0, 1, 2);
+
+
     layout->addWidget (splitter, 1, 0, 1, 5);
-    layout->addWidget (&filter, 2, 3);
-    layout->addWidget (&apply_filter, 2, 4);
 
-    layout->addWidget(&add_row, 2, 0);
-    layout->addWidget(&delete_rows, 2, 1);
+    QGridLayout *filters_layout = new QGridLayout ();
+    modelfilter = new QLineEdit ();
+    minPrice = new QDoubleSpinBox ();
+    maxPrice = new QDoubleSpinBox ();
 
-    connect (&add_row,  &QPushButton::clicked, model, &CarModel::add_row_func);
-    connect (&delete_rows,  &QPushButton::clicked, model, &CarModel::delete_rows_func);
+    maxPrice->setRange (0, 1e30);
+    maxPrice->setValue (1e30);
+
+    minPrice->setRange (0, 1e30);
+    minPrice->setValue (0);
+
+    filters_layout->addWidget (new QLabel ("Model:"), 0, 0);
+    filters_layout->addWidget (modelfilter, 0, 1);
+    modelfilter->setMaximumWidth(100);
+
+    filters_layout->addWidget (new QLabel ("Min Price:"), 1, 0);
+    filters_layout->addWidget (minPrice, 1, 1);
+    minPrice->setMaximumWidth(100);
+
+    filters_layout->addWidget (new QLabel ("Max Price:"), 2, 0);
+    filters_layout->addWidget (maxPrice, 2, 1);
+    maxPrice->setMaximumWidth(100);
+
+    filters_layout->addWidget (&apply_filter, 3, 0);
+    apply_filter.setMaximumWidth(50);
+    layout->addLayout (filters_layout, 3, 0, 1, 1);
+
     connect (&apply_filter,  &QPushButton::clicked, this, &tableWidget::filter_data);
 
     splitter->addWidget (m_view);
@@ -152,15 +182,14 @@ tableWidget::tableWidget (QWidget *parent, CarModel *model) : QWidget(parent),
 
     // todo
     QCustomPlot *plot = new QCustomPlot (this);
+    plot->setInteractions (QCP::Interaction::iRangeDrag | QCP::Interaction::iRangeZoom);
     plot->addGraph ();
     splitter->addWidget(plot);
 }
 
 void tableWidget::filter_data ()
 {
-  auto filter_text = filter.text ();
-  filter_model->setFilterKeyColumn ((int)car_fields::model);
-  filter_model->setFilterFixedString (filter_text);
+  filter_model->set_filter ();
 }
 
 
@@ -232,6 +261,43 @@ void MainWindow::save_file(QString path)
   }
 }
 
+
+//Nikolay
+FilterModel::FilterModel(QObject *parent, const tableWidget *w) : QSortFilterProxyModel(parent), table_widget (w)
+{
+}
+
+
+void FilterModel::set_filter()
+{
+    min_price = table_widget->minPrice->value();
+    max_price = table_widget->maxPrice->value();
+    model     = table_widget->modelfilter->text();
+
+    invalidate ();
+}
+
+bool FilterModel::filterAcceptsRow (int source_row, const QModelIndex &source_parent) const
+{
+    const Car& car = table_widget->model->m_data[source_row];
+    double price = car.data[(int)car_fields::price].toDouble();
+    QString car_model = car.data[(int)car_fields::model].toString();
+
+    // price
+    if (!(price >= min_price && price <= max_price))
+        return false;
+
+   //model
+   if (car_model != model && model.size ())
+       return false;
+
+
+    return true;
+}
+
+
+
+
 // Nikolay
 void MainWindow::save_as()
 {
@@ -272,6 +338,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), model (parent)
     newAction = new QAction ("Save as");
     connect(newAction, &QAction::triggered, this, &MainWindow::save_as);
     file_menu->addAction (newAction);
+
+    auto edit_menu = menuBar ()->addMenu ("Edit");
+
+    newAction = new QAction ("Add Row");
+    connect(newAction, &QAction::triggered, &model, &CarModel::add_row_func);
+    edit_menu->addAction (newAction);
+
+    newAction = new QAction ("Delete Rows");
+    connect(newAction, &QAction::triggered, &model, &CarModel::delete_rows_func);
+    newAction->setShortcut(QKeySequence(Qt::Key_Delete));
+    edit_menu->addAction (newAction);
+
 }
 
 MainWindow::~MainWindow()
