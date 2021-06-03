@@ -24,7 +24,9 @@ public:
   void set_view (const QTableView *view) {m_view = view;}
   void set_data (std::vector<Car> &data)
   {
+      beginResetModel ();
       m_data = std::move (data);
+      endResetModel ();
       emit layoutChanged ();
   }
 
