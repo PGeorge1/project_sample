@@ -242,22 +242,20 @@ void MainWindow::re_function ()
     model.set_data (data);
 }
 
-
+// Previous variant of the function could lead to inproper print of "\n",
+// if there are some elements in a row which are equal to the last element of the row.
 void MainWindow::save_file(QString path)
 {
   std::ofstream out(path.toStdString ().c_str ());
 
   for (auto &car : model.m_data)
   {
-    for (auto &token : car.data)
+    for(int i=0;i<car.data.size()-1;i++)
     {
-
-      out << token.toString ().toStdString ();
-      if (token != car.data[car.data.size() - 1])
-        out << ',';
-      else
-        out << '\n';
+    	out << car.data[i].toString().toStdString();
+    	out << ',';
     }
+    out << '\n';
   }
 }
 
