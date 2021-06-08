@@ -255,6 +255,7 @@ void MainWindow::save_file(QString path)
     	out << car.data[i].toString().toStdString();
     	out << ',';
     }
+    out << car.data[car.data.size()-1].toString().toStdString();
     out << '\n';
   }
 }
